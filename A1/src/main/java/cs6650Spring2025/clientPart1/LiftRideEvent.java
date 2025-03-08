@@ -21,6 +21,16 @@ public class LiftRideEvent {
     this.time = RANDOM.nextInt(360) + 1;
   }
 
+  public LiftRideEvent(int skierID, int resortID, int liftID, String seasonID, String dayID,
+      int time) {
+    this.skierID = skierID;
+    this.resortID = resortID;
+    this.liftID = liftID;
+    this.seasonID = seasonID;
+    this.dayID = dayID;
+    this.time = time;
+  }
+
   public int getSkierID() {
     return skierID;
   }
@@ -44,11 +54,6 @@ public class LiftRideEvent {
   public int getTime() {
     return time;
   }
-  public LiftRide toLiftRide() {
-    LiftRide liftRide = new LiftRide();
-    liftRide.setTime(this.time);
-    liftRide.setLiftID(this.liftID);
-    return liftRide;
-  }
+
 
 }

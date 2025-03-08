@@ -24,8 +24,8 @@ public class PostRequestSingleThread implements Runnable {
   private final CountDownLatch countDownLatch;
   private final LiftRideEventRandomGenerator liftRideEventRandomGenerator;
   private final SkiersApi skiersApi;
-  private static final String BASE_PATH = "http://44.233.246.8:8080/A1_war/";
-//  private static final String BASE_PATH = "http://localhost:8080/A1_war_exploded";
+//  private static final String BASE_PATH = "http://44.233.246.8:8080/A1_war/";
+  private static final String BASE_PATH = "http://localhost:8080/A1_war_exploded";
   private static final int RETIRES_THRESHOLD = 5;
   private final int threadID;
   private final RecordWriter recordWriter;

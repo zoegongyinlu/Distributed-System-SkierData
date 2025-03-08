@@ -13,6 +13,7 @@ public class SkierClientMain {
 
   private static final int POST_REQUEST_PER_THREAD = 1000;
   private static final int MILLISECONDS = 1000;
+  private static final double PHASE_1_PERCENTAGE = 0.2;
 
   public static void main(String[] args) throws InterruptedException {
     //start count the time and set up the counts for failure and success
@@ -28,19 +29,24 @@ public class SkierClientMain {
     //For the first 1000 post request
     ExecutorService executorService1 = Executors.newFixedThreadPool(NUM_THREADS);
     CountDownLatch countDownLatch = new CountDownLatch(NUM_THREADS);
+    int phase1ThreadsToWaitFor = (int) Math.max(1, NUM_THREADS*PHASE_1_PERCENTAGE);
+    CountDownLatch countDownLatchPartial = new CountDownLatch(phase1ThreadsToWaitFor);
+
     System.out.println("Starting Phase 1 with " + NUM_THREADS + " threads");
     System.out.println("phase 1 total request:" + (NUM_THREADS * POST_REQUEST_PER_THREAD));
     for (int i = 0; i < NUM_THREADS; i++) {
+      final int threadNum = i;
       executorService1.submit(
         new PostRequestSingleThread(POST_REQUEST_PER_THREAD, successCounts, failCounts, countDownLatch, liftRideEventRandomGenerator, recordWriter)
       );
+      if (threadNum<phase1ThreadsToWaitFor){
+        countDownLatchPartial.countDown();
+      }
     }
 
-    System.out.println("Phase 1 completed.");
+    countDownLatchPartial.await();
+    System.out.println("Starting Phase 2 after " + phase1ThreadsToWaitFor + " threads from Phase 1 completed");
 
-
-    countDownLatch.await();
-    executorService1.shutdown();
 
     // for the remaining posts, create 2* core
     int remainingRequests = TOTAL_REQUESTS - (NUM_THREADS * POST_REQUEST_PER_THREAD);
@@ -63,6 +69,8 @@ public class SkierClientMain {
       executorService2.shutdown();
     }
 
+    countDownLatch.await();
+    executorService1.shutdown();
 
     // stop the generation
     liftRideEventRandomGenerator.stopGeneration();

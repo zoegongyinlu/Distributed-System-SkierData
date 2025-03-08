@@ -25,6 +25,12 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
   </dependency>
 
   <dependency>
+    <groupId>com.rabbitmq</groupId>
+    <artifactId>amqp-client</artifactId>
+    <version>5.17.0</version>
+  </dependency>
+
+  <dependency>
     <groupId>com.squareup.okhttp</groupId>
     <artifactId>okhttp</artifactId>
     <version>2.7.5</version>
@@ -46,6 +52,11 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
     <groupId>javax.xml.bind</groupId>
     <artifactId>jaxb-api</artifactId>
     <version>2.2.11</version>
+  </dependency>
+  <dependency>
+    <groupId>org.apache.commons</groupId>
+    <artifactId>commons-pool2</artifactId>
+    <version>2.11.1</version>
   </dependency>
   <dependency>
     <groupId>com.sun.xml.bind</groupId>
