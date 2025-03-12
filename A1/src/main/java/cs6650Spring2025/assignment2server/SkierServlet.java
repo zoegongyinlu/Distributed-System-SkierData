@@ -1,6 +1,7 @@
 package cs6650Spring2025.assignment2server;
 
 import com.google.gson.Gson;
+import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import cs6650Spring2025.clientPart1.LiftRideEvent;
@@ -10,6 +11,7 @@ import io.swagger.client.model.SkierVertical;
 import io.swagger.client.model.SkierVerticalResorts;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -18,19 +20,21 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import com.rabbitmq.client.Channel;
+import java.util.logging.Logger;
 
 //@WebServlet(value = "/skiers/*")  // URL pattern for this servlet
 public class SkierServlet extends HttpServlet {
-  private static final String QUEUE_NAME = "skier_lift_ride_queue";
+  private static final String QUEUE_NAME = "lift_ride_queue";
   // localhost
-  private static final String RABBITMQ_HOST = "http://localhost";
+//  private static final String RABBITMQ_HOST = "localhost";
   //EC2 host address
-//  private static final String RABBITMQ_HOST = "http://44.233.246.8";
+  private static final String RABBITMQ_HOST = "54.70.80.157";
   private static final int RABBITMQ_PORT = 5672;
   private static final String RABBITMQ_USERNAME = "admin";
-  private static final String RABBITMQ_PASSWORD = "123456";
-  private static final int RECOVERY_DELAY =5000;
-  private static final int HEART_BEATS = 30;
+  private static final String RABBITMQ_PASSWORD = "654321";
+//  private static final int RECOVERY_DELAY =5000;
+//  private static final int HEART_BEATS = 30;
+private static final Logger logger = Logger.getLogger(SkierServlet.class.getName());
 
   private static final int CHANNEL_POOL_SIZE = 10;
 
@@ -41,16 +45,24 @@ public class SkierServlet extends HttpServlet {
   public void init() throws ServletException {
     super.init();
 
+
     try{
       //set up factory
       rabbitMQChannelPool = new RabbitMQChannelPool(RABBITMQ_HOST, RABBITMQ_PORT, RABBITMQ_USERNAME, RABBITMQ_PASSWORD, QUEUE_NAME, CHANNEL_POOL_SIZE);
-      getServletContext().log("RabbitMQ channel pool initialized with capacity "+ CHANNEL_POOL_SIZE);
+
+
+
+      //set up factory
+      rabbitMQChannelPool = new RabbitMQChannelPool(RABBITMQ_HOST, RABBITMQ_PORT, RABBITMQ_USERNAME, RABBITMQ_PASSWORD, QUEUE_NAME, CHANNEL_POOL_SIZE);
+
 
 
     }catch (Exception e){
-      getServletContext().log("RabbitMQ channel pool initialization failed "+ e.getMessage());
+//      getServletContext().log("RabbitMQ channel pool initialization failed "+ e.getMessage());
       throw new ServletException("failed to initialize rabbitMQ",e);
     }
+
+
   }
 
   /**
@@ -67,28 +79,28 @@ public class SkierServlet extends HttpServlet {
     }
   }
 
+
+
   @Override
   protected void doPost(HttpServletRequest req, HttpServletResponse res)
-      throws ServletException, IOException {
+      throws IOException {
+//////
+//    System.out.println("============ POST REQUEST RECEIVED ============");
+//    System.out.println("Request URI: " + req.getRequestURI());
+//    System.out.println("Context Path: " + req.getContextPath());
+//    System.out.println("Servlet Path: " + req.getServletPath());
+//    System.out.println("Path Info: " + req.getPathInfo());
 
-    System.out.println("============ POST REQUEST RECEIVED ============");
-    System.out.println("Request URI: " + req.getRequestURI());
-    System.out.println("Context Path: " + req.getContextPath());
-    System.out.println("Servlet Path: " + req.getServletPath());
-    System.out.println("Path Info: " + req.getPathInfo());
+
     res.setContentType("application/json");
     String urlPath = req.getPathInfo();
     String requestBody = null;
-    LiftRide liftRide = null;
     Channel channel = null;
     boolean channelInvalid = false;
 
     // check we have a URL!
     if (urlPath == null || urlPath.isEmpty()) {
-      res.setStatus(HttpServletResponse.SC_NOT_FOUND);
-      ResponseMsg errorMsg = new ResponseMsg();
-      errorMsg.setMessage("Missing required parameters");
-      res.getWriter().write(new Gson().toJson(errorMsg));
+      sendErrorResponse(res, HttpServletResponse.SC_NOT_FOUND, "Missing required URL path");
       return;
     }
 
@@ -96,14 +108,12 @@ public class SkierServlet extends HttpServlet {
     // and now validate url path and return the response status code
     // (and maybe also some value if input is valid)
 
+    //validate the URL format
     if (!isPostSkierURLValid(urlParts)) {
-      res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      ResponseMsg errorMsg = new ResponseMsg();
-      errorMsg.setMessage("Invalid inputs");
-      res.getWriter().write(new Gson().toJson(errorMsg));
+      sendErrorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid URL format");
       return;
     }
-    try{
+    try {
       StringBuilder sb = new StringBuilder();
       BufferedReader reader = req.getReader();
       String line;
@@ -112,59 +122,93 @@ public class SkierServlet extends HttpServlet {
       }
       requestBody = sb.toString();
 
-      if (requestBody==null || requestBody.trim().isEmpty()) {
-        res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-        ResponseMsg errorMsg = new ResponseMsg();
-        errorMsg.setMessage("Request body is empty");
+      if (requestBody == null || requestBody.trim().isEmpty()) {
+        sendErrorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Request body is empty");
         return;
       }
 
       // Parse the Json Payload
+
       Gson gson = new Gson();
-      liftRide = gson.fromJson(requestBody, LiftRide.class);
+      LiftRide liftRide = null;
+
+      try {
+        liftRide = gson.fromJson(requestBody, LiftRide.class);
+
+      } catch (Exception e) {
+        sendErrorResponse(res, HttpServletResponse.SC_BAD_REQUEST,
+            "Invalid JSON format: " + e.getMessage());
+        return;
+      }
+
+      // validate the liftRide object:
+      if (liftRide == null || liftRide.getLiftID() == null || liftRide.getTime() == null) {
+        sendErrorResponse(res, HttpServletResponse.SC_BAD_REQUEST,
+            "Invalid lift ride data: missing required fields");
+        return;
+      }
+
+      try {
+        liftRide = gson.fromJson(requestBody, LiftRide.class);
+
+        int resortId = Integer.parseInt(urlParts[1]);
+        String seasonId = urlParts[3];
+        String dayId = urlParts[5];
+        int skierId = Integer.parseInt(urlParts[7]);
+
+//        System.out.println("=============START TO ADD LIFT RIDE============");
+
+        LiftRideEvent liftRideEvent = new LiftRideEvent(skierId, resortId, liftRide.getLiftID(),
+            seasonId, dayId, liftRide.getTime());
+        String messageBody = gson.toJson(liftRideEvent);
+
+        try {
+          channel = rabbitMQChannelPool.borrowChannel();
+
+          //1:"", default direct exchange type, 2: routing key: queue name, 3:	AMQP.BasicProperties, 4: body in byte[]
+          channel.basicPublish("", rabbitMQChannelPool.getQueueName(), null, messageBody.getBytes(
+              StandardCharsets.UTF_8));
 
 
-      handleWriteNewLiftRide(res, liftRide);
+          res.setStatus(HttpServletResponse.SC_CREATED);
+          ResponseMsg successMsg = new ResponseMsg();
+          successMsg.setMessage("Lift ride event created successfully");
+          res.getWriter().write(new Gson().toJson(successMsg));
 
+        } catch (Exception e) {
+          channelInvalid = true;
+          sendErrorResponse(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+              "Failed to publish message: " + e.getMessage());
+
+        } finally {
+          if (channel != null) {
+            rabbitMQChannelPool.returnChannelIfInvalid(channel, channelInvalid);
+          }
+        }
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    }catch (NumberFormatException e) {
+      sendErrorResponse(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid numeric input: " + e.getMessage());
 
     }catch (Exception e) {
-      res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      ResponseMsg errorMsg = new ResponseMsg();
-      errorMsg.setMessage("Invalid input");
-      res.getWriter().write(new Gson().toJson(errorMsg));
-    }
-
-    try{
-      Gson gson = new Gson();
-      int resortId = Integer.parseInt(urlParts[1]);
-      String seasonId = urlParts[3];
-      String dayId = urlParts[5];
-      int skierId = Integer.parseInt(urlParts[7]);
-      // Assignment2: add liftRide Event to message queue
-      LiftRideEvent liftRideEvent = new LiftRideEvent(liftRide.getLiftID(), liftRide.getTime(), resortId, seasonId, dayId, skierId);
-      String messageBody = gson.toJson(liftRideEvent);
-      channel = rabbitMQChannelPool.borrowChannel();
-
-  //1:"", default direct exchange type, 2: routing key: queue name, 3:	AMQP.BasicProperties, 4: body in byte[]
-      //TODO:
-//      channel.basicPublish("", );
-
-    } catch (Exception e) {
-      throw new RuntimeException(e);
+      sendErrorResponse(res, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Server error: " + e.getMessage());
+      getServletContext().log("Error in doPost: ", e);
     }
   }
 
-  private void handleWriteNewLiftRide(HttpServletResponse res, LiftRide liftRide) throws IOException {
-    if (liftRide == null || liftRide.getLiftID()==null || liftRide.getTime()==null) {
-      res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      ResponseMsg errorMsg = new ResponseMsg();
-      errorMsg.setMessage("Invalid lift ride data");
-      res.getWriter().write(new Gson().toJson(errorMsg));
-      return;
-    }
+  /**
+   * Helper method to send error responses
+   */
+  private void sendErrorResponse(HttpServletResponse res, int responseCode, String msg) throws IOException {
+    res.setStatus(responseCode);
+    ResponseMsg errorMsg = new ResponseMsg();
+    errorMsg.setMessage(msg);
+    res.getWriter().write(new Gson().toJson(errorMsg));
 
-    res.setStatus(HttpServletResponse.SC_CREATED);
   }
+
+
 
   private boolean isPostSkierURLValid(String[] urlParts) {
     if (urlParts == null || urlParts.length == 0) return false;

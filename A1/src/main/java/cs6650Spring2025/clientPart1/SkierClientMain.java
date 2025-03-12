@@ -9,9 +9,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SkierClientMain {
 
   private static final int TOTAL_REQUESTS = 200000;
+
   private static final int NUM_THREADS = 32;
+//    private static final int NUM_THREADS = 4;
 
   private static final int POST_REQUEST_PER_THREAD = 1000;
+
+
+
   private static final int MILLISECONDS = 1000;
   private static final double PHASE_1_PERCENTAGE = 0.2;
 
@@ -35,9 +40,10 @@ public class SkierClientMain {
     System.out.println("Starting Phase 1 with " + NUM_THREADS + " threads");
     System.out.println("phase 1 total request:" + (NUM_THREADS * POST_REQUEST_PER_THREAD));
     for (int i = 0; i < NUM_THREADS; i++) {
+      boolean countForPartial = i< Math.ceil(NUM_THREADS*PHASE_1_PERCENTAGE);
       final int threadNum = i;
       executorService1.submit(
-        new PostRequestSingleThread(POST_REQUEST_PER_THREAD, successCounts, failCounts, countDownLatch, liftRideEventRandomGenerator, recordWriter)
+        new PostRequestSingleThread(POST_REQUEST_PER_THREAD, successCounts, failCounts, countDownLatch, countDownLatchPartial, countForPartial, liftRideEventRandomGenerator, recordWriter)
       );
       if (threadNum<phase1ThreadsToWaitFor){
         countDownLatchPartial.countDown();
@@ -79,7 +85,7 @@ public class SkierClientMain {
     double throughput =(double) TOTAL_REQUESTS / (wallTime/MILLISECONDS);
 
     //printout:
-    //number of successful requests sent
+    //number of successful requests sents
     //number of unsuccessful requests (should be 0)
     //the total run time (wall time) for all phases to complete. Calculate this by taking a timestamp before you startany threads and another after all threads are complete.
     //the total throughput in requests per second (total number of requests/wall time)

@@ -67,6 +67,8 @@ public class RabbitMQChannelPool {
    * @throws Exception if there's an error borrowing from the pool
    */
   public Channel borrowChannel() throws Exception {
+    System.out.println("Borrowing channel from pool...");
+
     return channelPool.borrowObject();
   }
 
@@ -102,6 +104,10 @@ public class RabbitMQChannelPool {
     if (connection != null && connection.isOpen()) {
       connection.close();
     }
+  }
+
+  public String getQueueName() {
+    return queueName;
   }
 
 }

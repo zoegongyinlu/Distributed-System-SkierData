@@ -11,6 +11,7 @@ import io.swagger.client.model.LiftRide;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.apache.http.HttpHost;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -21,30 +22,54 @@ public class PostRequestSingleThread implements Runnable {
   private final int numRequests;
   private final AtomicInteger counterSuccess;
   private final AtomicInteger counterFail;
-  private final CountDownLatch countDownLatch;
+  private final CountDownLatch completionLatch;
+  private final CountDownLatch partialLatch;
+  private final boolean countForPartial;
   private final LiftRideEventRandomGenerator liftRideEventRandomGenerator;
   private final SkiersApi skiersApi;
-//  private static final String BASE_PATH = "http://44.233.246.8:8080/A1_war/";
-  private static final String BASE_PATH = "http://localhost:8080/A1_war_exploded";
+  private static final String BASE_PATH = "http://44.233.246.8:8080/A1_war";
+//  private static final String BASE_PATH = "http://localhost:8080/A1_war_exploded";
   private static final int RETIRES_THRESHOLD = 5;
   private final int threadID;
   private final RecordWriter recordWriter;
+  private final double PHASE1_PARTIAL_THRESHOLD = 0.2;
 
   public PostRequestSingleThread(int numRequests, AtomicInteger counterSuccess,
-      AtomicInteger counterFail, CountDownLatch countDownLatch,
+      AtomicInteger counterFail, CountDownLatch completionLatch,
       LiftRideEventRandomGenerator liftRideEventRandomGenerator, RecordWriter recordWriter) {
     this.numRequests = numRequests;
     this.counterSuccess = counterSuccess;
     this.counterFail = counterFail;
-    this.countDownLatch = countDownLatch;
+    this.completionLatch = completionLatch;
+    this.partialLatch = null;
+    this.countForPartial = false;
     this.liftRideEventRandomGenerator = liftRideEventRandomGenerator;
     ApiClient apiClient = new ApiClient();
     apiClient.setBasePath(BASE_PATH);
+    apiClient.setVerifyingSsl(false);
     this.skiersApi = new SkiersApi(apiClient);
     this.threadID = ThreadLocalRandom.current().nextInt();
     this.recordWriter = recordWriter;
   }
+  public PostRequestSingleThread(int numRequests, AtomicInteger counterSuccess,
+      AtomicInteger counterFail, CountDownLatch completionLatch, CountDownLatch partialLatch,
+      boolean countForPartial, LiftRideEventRandomGenerator liftRideEventRandomGenerator,
+      RecordWriter recordWriter) {
+    this.numRequests = numRequests;
+    this.counterSuccess = counterSuccess;
+    this.counterFail = counterFail;
+    this.completionLatch = completionLatch;
+    this.partialLatch = partialLatch;
+    this.countForPartial = countForPartial;
+    this.liftRideEventRandomGenerator = liftRideEventRandomGenerator;
 
+    ApiClient apiClient = new ApiClient();
+    apiClient.setBasePath(BASE_PATH);
+    apiClient.setVerifyingSsl(false);
+    this.skiersApi = new SkiersApi(apiClient);
+    this.threadID = ThreadLocalRandom.current().nextInt();
+    this.recordWriter = recordWriter;
+  }
   /**
    * @see Thread#run()
    */
@@ -52,10 +77,8 @@ public class PostRequestSingleThread implements Runnable {
   public void run() {
 
     int completedRequest = 0;
+    boolean partialNotified = false;
     for (int i=0; i<numRequests ; i++) {
-//      if (i % 100 == 0) { // Log every 100 requests
-////        System.out.println("Thread " + threadID + " has completed " + i + " requests");
-//      }
       boolean success = false;
       int retryCount = 0;
       long startTime = System.currentTimeMillis();
@@ -65,8 +88,8 @@ public class PostRequestSingleThread implements Runnable {
           LiftRide liftRide = new LiftRide();
           liftRide.setLiftID(liftRideEvent.getLiftID());
           liftRide.setTime(liftRideEvent.getTime());
-
-//          System.out.println("Sending request to EC2: " + BASE_PATH +
+////DEBUG:
+//          System.out.println("Making request to: " + BASE_PATH +
 //              "/skiers/" + liftRideEvent.getResortID() +
 //              "/seasons/" + liftRideEvent.getSeasonID() +
 //              "/days/" + liftRideEvent.getDayID() +
@@ -82,7 +105,10 @@ public class PostRequestSingleThread implements Runnable {
           completedRequest++;
           counterSuccess.incrementAndGet();
 
-
+        if(countForPartial && !partialNotified && partialLatch!=null && completedRequest>=(numRequests*PHASE1_PARTIAL_THRESHOLD)){
+          partialLatch.countDown();
+          partialNotified = true;
+        }
 
         } catch (ApiException e) {
           long endTime = System.currentTimeMillis();
@@ -107,7 +133,7 @@ public class PostRequestSingleThread implements Runnable {
       }
 
     }
-    countDownLatch.countDown();
+    completionLatch.countDown();
   }
 
 }

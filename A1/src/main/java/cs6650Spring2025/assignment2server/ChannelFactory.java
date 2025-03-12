@@ -24,6 +24,7 @@ public class ChannelFactory extends BasePooledObjectFactory<Channel>  {
   public Channel create() throws Exception {
     Channel channel = connection.createChannel();
     //durable: true, exclusive: false, autodelete:false
+
     channel.queueDeclare(queName, true, false, false, null);
     return channel;
   }
