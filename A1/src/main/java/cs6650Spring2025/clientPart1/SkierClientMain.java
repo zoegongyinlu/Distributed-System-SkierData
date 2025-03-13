@@ -14,7 +14,7 @@ public class SkierClientMain {
 //    private static final int NUM_THREADS = 4;
 
   private static final int POST_REQUEST_PER_THREAD = 1000;
-
+  private static final int AVAILABLE_CORES_TIMES = 4;
 
 
   private static final int MILLISECONDS = 1000;
@@ -59,7 +59,7 @@ public class SkierClientMain {
     System.out.println("Remaining requests for Phase 2: " + remainingRequests);
     if (remainingRequests > 0) {
       int availableCores = Runtime.getRuntime().availableProcessors();
-      int remainingThread = availableCores * 2;
+      int remainingThread = availableCores * AVAILABLE_CORES_TIMES;
       int remainingRequestPerThread = remainingRequests / remainingThread;
       int extraRemainingRequestPerThread = remainingRequests % remainingThread;
 

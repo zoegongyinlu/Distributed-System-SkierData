@@ -1,5 +1,6 @@
 package cs6650Spring2025.clientPart1;
 
+import com.squareup.okhttp.ConnectionPool;
 import cs6650Spring2025.clientPart2.PostRequestMetrics;
 import cs6650Spring2025.clientPart2.RecordWriter;
 import io.swagger.client.ApiClient;
@@ -8,12 +9,9 @@ import io.swagger.client.ApiResponse;
 import io.swagger.client.api.SkiersApi;
 import io.swagger.client.model.LiftRide;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import org.apache.http.HttpHost;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.servlet.http.HttpServletResponse;
 
@@ -29,7 +27,7 @@ public class PostRequestSingleThread implements Runnable {
   private final SkiersApi skiersApi;
   private static final String BASE_PATH = "http://44.233.246.8:8080/A1_war";
 //  private static final String BASE_PATH = "http://localhost:8080/A1_war_exploded";
-  private static final int RETIRES_THRESHOLD = 5;
+  private static final int RETIRES_THRESHOLD = 3;
   private final int threadID;
   private final RecordWriter recordWriter;
   private final double PHASE1_PARTIAL_THRESHOLD = 0.2;
@@ -47,6 +45,8 @@ public class PostRequestSingleThread implements Runnable {
     ApiClient apiClient = new ApiClient();
     apiClient.setBasePath(BASE_PATH);
     apiClient.setVerifyingSsl(false);
+    //add for concurrent connection pool
+
     this.skiersApi = new SkiersApi(apiClient);
     this.threadID = ThreadLocalRandom.current().nextInt();
     this.recordWriter = recordWriter;
@@ -66,6 +66,8 @@ public class PostRequestSingleThread implements Runnable {
     ApiClient apiClient = new ApiClient();
     apiClient.setBasePath(BASE_PATH);
     apiClient.setVerifyingSsl(false);
+//    //add for concurrent connection pool
+
     this.skiersApi = new SkiersApi(apiClient);
     this.threadID = ThreadLocalRandom.current().nextInt();
     this.recordWriter = recordWriter;
@@ -88,12 +90,6 @@ public class PostRequestSingleThread implements Runnable {
           LiftRide liftRide = new LiftRide();
           liftRide.setLiftID(liftRideEvent.getLiftID());
           liftRide.setTime(liftRideEvent.getTime());
-////DEBUG:
-//          System.out.println("Making request to: " + BASE_PATH +
-//              "/skiers/" + liftRideEvent.getResortID() +
-//              "/seasons/" + liftRideEvent.getSeasonID() +
-//              "/days/" + liftRideEvent.getDayID() +
-//              "/skiers/" + liftRideEvent.getSkierID());
 
           ApiResponse<Void> response = skiersApi.writeNewLiftRideWithHttpInfo(liftRide,
               liftRideEvent.getResortID(), liftRideEvent.getSeasonID(), liftRideEvent.getDayID(), liftRideEvent.getSkierID());

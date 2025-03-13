@@ -17,21 +17,22 @@ import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 public class RabbitMQChannelPool {
   private final GenericObjectPool<Channel> channelPool;
   private final int MIN_POOL_SIZE = 1;
-  private int poolSize;
+  private int MAX_POOL_SIZE = 50;
 
-  private final String queueName;
+  private final String queueNamePrefix;
   private Connection connection;
 
-  private final int RECOVERY_DELAY = 5000;
-  private final int RECOVERY_HEART_BEAT = 30;
+  //TODO: adjust
+  private final int RECOVERY_DELAY = 100;
+  private final int RECOVERY_HEART_BEAT = 60;
 
   public RabbitMQChannelPool(String host, int port,
       String username,
       String password,
-      String queueName,
+      String queueNamePrefix, int numQueues,
       int poolSize) throws IOException, TimeoutException {
 
-    this.queueName = queueName;
+    this.queueNamePrefix = queueNamePrefix;
     ConnectionFactory factory = new ConnectionFactory();
     factory.setHost(host);
     factory.setPort(port);
@@ -44,12 +45,12 @@ public class RabbitMQChannelPool {
 
     this.connection = factory.newConnection();
 
-    ChannelFactory channelFactory = new ChannelFactory(connection, queueName);
+    ChannelFactory channelFactory = new ChannelFactory(connection, queueNamePrefix, numQueues);
 
 
     GenericObjectPoolConfig<Channel> genericObjectPoolConfig = new GenericObjectPoolConfig<>();
-    genericObjectPoolConfig.setMaxTotal(poolSize);
-    genericObjectPoolConfig.setMaxIdle(poolSize);
+    genericObjectPoolConfig.setMaxTotal(MAX_POOL_SIZE);
+    genericObjectPoolConfig.setMaxIdle(MAX_POOL_SIZE);
     genericObjectPoolConfig.setMinIdle(MIN_POOL_SIZE);
     genericObjectPoolConfig.setBlockWhenExhausted(true);
     genericObjectPoolConfig.setTestOnBorrow(true);
@@ -106,8 +107,17 @@ public class RabbitMQChannelPool {
     }
   }
 
-  public String getQueueName() {
-    return queueName;
+  /**
+   * Gets queue name based on a key value for distributing messages.
+   *
+   * @param skierID The value to use for determining queue (e.g., skierId)
+   * @param numQueues Total number of queues
+   * @return The appropriate queue name
+   */
+  public String getQueueName(int skierID, int numQueues) {
+    int queueIndex = skierID % numQueues;
+    return queueNamePrefix + queueIndex;
   }
+
 
 }

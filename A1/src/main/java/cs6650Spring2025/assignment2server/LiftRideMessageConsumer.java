@@ -13,16 +13,21 @@ import java.util.concurrent.atomic.AtomicInteger;
  * a thread-safe record of skier activities.
  */
 public class LiftRideMessageConsumer {
-  private static final String QUEUE_NAME = "lift_ride_queue";
+  private static final String QUEUE_NAME_PREFIX = "lift_ride_queue_";
+  private static final int NUM_QUEUES = 7;
 //  private static final String RABBITMQ_HOST = "localhost";
 private static final String RABBITMQ_HOST = "54.70.80.157";
   private static final int RABBITMQ_PORT = 5672;
   private static final String RABBITMQ_USERNAME = "admin";
   private static final String RABBITMQ_PASSWORD = "654321";
-  private static final int PREFETCH_COUNT = 30; //TODO: adjust this
 
-
+  //TODO: adjust them
+  private static final int PREFETCH_COUNT = 100; //TODO: adjust this
+  private static final int NUM_CONSUMER_THREADS_PER_QUEUE = 8; //TODO: adjust the consumer thread
+  private static final int TOTAL_CONSUMER_THREADS = NUM_CONSUMER_THREADS_PER_QUEUE * NUM_QUEUES;
   private static final int SLEEP_TIME = 0;
+  private static final int ACK_BATCH_SIZE = 100;
+
   //performance metrics:
   private static final AtomicInteger processMessageCount = new AtomicInteger(0);
   private static final AtomicInteger processErrorCount = new AtomicInteger(0);
@@ -33,11 +38,7 @@ private static final String RABBITMQ_HOST = "54.70.80.157";
   private static final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private static final long startTime = System.currentTimeMillis();
 
-  // Queue depth monitoring
-  private static Connection monitorConnection;
-  private static Channel monitorChannel;
 
-  private static final int NUM_CONSUMER_THREADS = 24; //TODO: adjust the consumer thread
 
 
 //hashmap to store the skier data that consumes from the message queue
@@ -45,8 +46,9 @@ private static final String RABBITMQ_HOST = "54.70.80.157";
   private static final ConcurrentHashMap<Integer, CopyOnWriteArrayList<String>> skierIdToRecords = new ConcurrentHashMap<>();
 
   public static void main(String[] args) throws IOException, TimeoutException, InterruptedException {
+    int availableCores = Runtime.getRuntime().availableProcessors();
+    System.out.println("Available Cores: " + availableCores);
     System.out.println("Starting Skier Queue Consumer...");
-
 
     final ConnectionFactory factory = new ConnectionFactory();
     factory.setHost(RABBITMQ_HOST);
@@ -54,23 +56,35 @@ private static final String RABBITMQ_HOST = "54.70.80.157";
     factory.setUsername(RABBITMQ_USERNAME);
     factory.setPassword(RABBITMQ_PASSWORD);
 
-
-    ExecutorService executorService = Executors.newFixedThreadPool(NUM_CONSUMER_THREADS);
-
+    ExecutorService executorService = Executors.newFixedThreadPool(TOTAL_CONSUMER_THREADS);
+    final CountDownLatch consumerStartLatch = new CountDownLatch(TOTAL_CONSUMER_THREADS);
 
     try{
       final Connection connection = factory.newConnection();
       System.out.println("Connected to RabbitMQ server at " + RABBITMQ_HOST);
 
-//      // set up monitor queue for getting the consumer rate:
-//      setUpMonitoringQueue(factory);
-
-
       // start to consume multi-thread
-      for (int i = 0; i < NUM_CONSUMER_THREADS; i++) {
-        executorService.submit(() -> consumeMessage(connection));
-      }
+      for (int queIndex = 0; queIndex < NUM_QUEUES; queIndex++) {
+        final String queueName = QUEUE_NAME_PREFIX + queIndex;
 
+        //consume thread for this queue
+        for (int i=0; i<NUM_CONSUMER_THREADS_PER_QUEUE; i++) {
+          executorService.submit(() ->{
+            try{
+              consumeMessage(connection, queueName);
+              consumerStartLatch.countDown();
+            }catch (Exception e){
+              System.err.println("Error in consumer main: " + e.getMessage());
+              e.printStackTrace();
+              consumerStartLatch.countDown();
+            }
+          });
+        }
+      }
+    consumerStartLatch.await(10, TimeUnit.SECONDS);
+      System.out.println("All consumer threads have been started successfully.");
+
+      // Print statistics periodically
       Runtime.getRuntime().addShutdownHook(new Thread(() -> {
         System.out.println("Shutting down RabbitMQ consumer...");
         shutdownLatch.countDown();
@@ -103,7 +117,7 @@ private static final String RABBITMQ_HOST = "54.70.80.157";
 
   }
 
-  private static void consumeMessage(Connection connection) {
+  private static void consumeMessage(Connection connection, String currentQueueName)  {
   try{
     final Channel channel = connection.createChannel();
 
@@ -112,7 +126,7 @@ private static final String RABBITMQ_HOST = "54.70.80.157";
     channel.basicQos(PREFETCH_COUNT);
 
     // durable: true, exclusive: false, autoDelete: false
-    channel.queueDeclare(QUEUE_NAME, true, false, false, null);
+    channel.queueDeclare(currentQueueName, true, false, false, null);
 
 
     DeliverCallback deliverCallback = (consumerTag, delivery) -> {
@@ -126,7 +140,7 @@ private static final String RABBITMQ_HOST = "54.70.80.157";
         saveMessage(message);
 
         //manual acknowledgement with false auto
-        channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+        channel.basicAck(delivery.getEnvelope().getDeliveryTag(), true); // TODO: enable batch acknowledge
         processMessageCount.incrementAndGet();
 
       } catch (Exception e) {
@@ -137,7 +151,7 @@ private static final String RABBITMQ_HOST = "54.70.80.157";
     };
 
 
-    channel.basicConsume(QUEUE_NAME, deliverCallback, consumerTag -> {});
+    channel.basicConsume(currentQueueName, deliverCallback, consumerTag -> {});
 
     while(!Thread.currentThread().isInterrupted()){
       TimeUnit.MILLISECONDS.sleep(SLEEP_TIME);

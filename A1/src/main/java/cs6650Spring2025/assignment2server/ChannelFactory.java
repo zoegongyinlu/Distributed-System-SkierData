@@ -14,18 +14,26 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
 public class ChannelFactory extends BasePooledObjectFactory<Channel>  {
   private final Connection connection;
   private int count;
-  private final String queName;
+  private final String queNamePrefix;
+  private final int numQueues;
 
-  public ChannelFactory(Connection connection, String queName) {
+  public ChannelFactory(Connection connection, String queNamePrefix, int numQueues) {
     this.connection = connection;
-    this.queName = queName;
+    this.queNamePrefix = queNamePrefix;
+    this.numQueues = numQueues;
+
   }
   @Override
   public Channel create() throws Exception {
     Channel channel = connection.createChannel();
     //durable: true, exclusive: false, autodelete:false
 
-    channel.queueDeclare(queName, true, false, false, null);
+    for (int i = 0; i < numQueues; i++) {
+      String queueName = queNamePrefix + i;
+      channel.queueDeclare(queueName, true, false, false, null);
+    }
+
+
     return channel;
   }
   /**

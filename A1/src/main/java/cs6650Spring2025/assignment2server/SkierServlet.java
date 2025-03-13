@@ -24,7 +24,8 @@ import java.util.logging.Logger;
 
 //@WebServlet(value = "/skiers/*")  // URL pattern for this servlet
 public class SkierServlet extends HttpServlet {
-  private static final String QUEUE_NAME = "lift_ride_queue";
+  private static final String QUEUE_NAME_PREFIX = "lift_ride_queue_";
+  private final int NUMBER_OF_QUEUES = 7;
   // localhost
 //  private static final String RABBITMQ_HOST = "localhost";
   //EC2 host address
@@ -36,7 +37,7 @@ public class SkierServlet extends HttpServlet {
 //  private static final int HEART_BEATS = 30;
 private static final Logger logger = Logger.getLogger(SkierServlet.class.getName());
 
-  private static final int CHANNEL_POOL_SIZE = 10;
+  private static final int CHANNEL_POOL_SIZE = 50; //TODO: adjust
 
   private Connection rabbitConnection;
   private RabbitMQChannelPool rabbitMQChannelPool;
@@ -48,12 +49,9 @@ private static final Logger logger = Logger.getLogger(SkierServlet.class.getName
 
     try{
       //set up factory
-      rabbitMQChannelPool = new RabbitMQChannelPool(RABBITMQ_HOST, RABBITMQ_PORT, RABBITMQ_USERNAME, RABBITMQ_PASSWORD, QUEUE_NAME, CHANNEL_POOL_SIZE);
+      rabbitMQChannelPool = new RabbitMQChannelPool(RABBITMQ_HOST, RABBITMQ_PORT, RABBITMQ_USERNAME, RABBITMQ_PASSWORD, QUEUE_NAME_PREFIX, NUMBER_OF_QUEUES, CHANNEL_POOL_SIZE);
+      getServletContext().setAttribute("rabbitmqChannelPool", rabbitMQChannelPool);
 
-
-
-      //set up factory
-      rabbitMQChannelPool = new RabbitMQChannelPool(RABBITMQ_HOST, RABBITMQ_PORT, RABBITMQ_USERNAME, RABBITMQ_PASSWORD, QUEUE_NAME, CHANNEL_POOL_SIZE);
 
 
 
@@ -156,6 +154,8 @@ private static final Logger logger = Logger.getLogger(SkierServlet.class.getName
         String dayId = urlParts[5];
         int skierId = Integer.parseInt(urlParts[7]);
 
+
+
 //        System.out.println("=============START TO ADD LIFT RIDE============");
 
         LiftRideEvent liftRideEvent = new LiftRideEvent(skierId, resortId, liftRide.getLiftID(),
@@ -166,7 +166,7 @@ private static final Logger logger = Logger.getLogger(SkierServlet.class.getName
           channel = rabbitMQChannelPool.borrowChannel();
 
           //1:"", default direct exchange type, 2: routing key: queue name, 3:	AMQP.BasicProperties, 4: body in byte[]
-          channel.basicPublish("", rabbitMQChannelPool.getQueueName(), null, messageBody.getBytes(
+          channel.basicPublish("", rabbitMQChannelPool.getQueueName(skierId, NUMBER_OF_QUEUES), null, messageBody.getBytes(
               StandardCharsets.UTF_8));
 
 
