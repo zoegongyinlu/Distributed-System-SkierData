@@ -22,8 +22,8 @@ private static final String RABBITMQ_HOST = "54.70.80.157";
   private static final String RABBITMQ_PASSWORD = "654321";
 
   //TODO: adjust them
-  private static final int PREFETCH_COUNT = 100; //TODO: adjust this
-  private static final int NUM_CONSUMER_THREADS_PER_QUEUE = 8; //TODO: adjust the consumer thread
+  private static final int PREFETCH_COUNT = 20; //TODO: adjust this
+  private static final int NUM_CONSUMER_THREADS_PER_QUEUE = 1; //TODO: adjust the consumer thread
   private static final int TOTAL_CONSUMER_THREADS = NUM_CONSUMER_THREADS_PER_QUEUE * NUM_QUEUES;
   private static final int SLEEP_TIME = 0;
   private static final int ACK_BATCH_SIZE = 100;

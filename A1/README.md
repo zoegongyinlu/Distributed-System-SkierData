@@ -8,7 +8,8 @@ The BASE_PATH in PostRequestSingleThread should be updated based on the desired 
 
 ```java
 private static final String BASE_PATH = "http://44.233.246.8:8080/A1_war/"; // EC2 instance
-// private static final String BASE_PATH = "http://localhost:8080/A1_war_exploded"; // Localhost
+private static final String BASE_PATH = "http://servlet-ELB-422677375.us-west-2.elb.amazonaws.com/A1_war"; //ELB
+private static final String BASE_PATH = "http://localhost:8080/A1_war_exploded"; // Localhost
 ```
 
 Uncomment the appropriate line depending on whether requests should be directed to an EC2 instance or a local server.
@@ -31,3 +32,19 @@ Monitor the console output for request statistics and execution performance.
 
 Check the generated PostRequestMetrics.csv file for detailed request metrics.
 
+
+
+### EC2- Instance Setup (All should automatically run, but manual setup is provided)
+1. servlet (Tomcat): 
+```bash
+sudo systemctl start tomcat.service 
+# Or mannually start
+sudo /usr/share/apache-tomcat-9.0.93/bin/startup.sh
+```
+
+2. java message Consumer instance: 
+```bash
+java -jar /opt/Assignment/skier-app/messageConsumer/A1-1.0-SNAPSHOT.jar
+```
+
+3. rabbitMQ Ec2 instance (automatically running)

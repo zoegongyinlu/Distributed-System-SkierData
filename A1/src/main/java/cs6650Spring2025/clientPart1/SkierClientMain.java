@@ -18,7 +18,7 @@ public class SkierClientMain {
 
 
   private static final int MILLISECONDS = 1000;
-  private static final double PHASE_1_PERCENTAGE = 0.2;
+  private static final double PHASE_1_PERCENTAGE = 0.3;
 
   public static void main(String[] args) throws InterruptedException {
     //start count the time and set up the counts for failure and success
