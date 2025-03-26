@@ -9,11 +9,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SkierClientMain {
 
   private static final int TOTAL_REQUESTS = 200000;
+//  private static final int TOTAL_REQUESTS = 100;
 
   private static final int NUM_THREADS = 32;
 //    private static final int NUM_THREADS = 4;
 
   private static final int POST_REQUEST_PER_THREAD = 1000;
+//  private static final int POST_REQUEST_PER_THREAD = 10;
+
   private static final int AVAILABLE_CORES_TIMES = 4;
 
 

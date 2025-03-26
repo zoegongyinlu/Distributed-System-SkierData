@@ -1,3 +1,8 @@
+### `LiftRideMessageConsumer` class
+
+The `LiftRideMessageConsumer` class is responsible for consuming messages that are published to the message queues. I increased the number of message queues to consume the messages published to the broker. 
+
+
 ### `PostRequestSingleThread` Class
 
 The `PostRequestSingleThread` class is responsible for sending HTTP POST requests to the Skiers API. I changed
@@ -8,7 +13,7 @@ The BASE_PATH in PostRequestSingleThread should be updated based on the desired 
 
 ```java
 private static final String BASE_PATH = "http://44.233.246.8:8080/A1_war/"; // EC2 instance
-private static final String BASE_PATH = "http://servlet-ELB-422677375.us-west-2.elb.amazonaws.com/A1_war"; //ELB
+ private static final String BASE_PATH = "http://servlet-ELB-422677375.us-west-2.elb.amazonaws.com/A1_war"; //ELB
 private static final String BASE_PATH = "http://localhost:8080/A1_war_exploded"; // Localhost
 ```
 
@@ -46,5 +51,3 @@ sudo /usr/share/apache-tomcat-9.0.93/bin/startup.sh
 ```bash
 java -jar /opt/Assignment/skier-app/messageConsumer/A1-1.0-SNAPSHOT.jar
 ```
-
-3. rabbitMQ Ec2 instance (automatically running)

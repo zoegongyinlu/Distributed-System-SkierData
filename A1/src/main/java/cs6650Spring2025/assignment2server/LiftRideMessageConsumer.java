@@ -3,27 +3,42 @@ package cs6650Spring2025.assignment2server;
 import com.google.gson.Gson;
 import com.rabbitmq.client.*;
 
+import cs6650Spring2025.assignment3Database.SkiResortDynamoDBManager;
 import cs6650Spring2025.clientPart1.LiftRideEvent;
+import cs6650Spring2025.util.ConfigReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 /**
  * Main class for consuming lift ride events from RabbitMQ queue and maintaining
- * a thread-safe record of skier activities.
+ * a thread-safe record of skier activities. Updated for Assignment 3
  */
 public class LiftRideMessageConsumer {
+  static{
+    ConfigReader.loadProperties();
+  }
   private static final String QUEUE_NAME_PREFIX = "lift_ride_queue_";
   private static final int NUM_QUEUES = 7;
 //  private static final String RABBITMQ_HOST = "localhost";
-private static final String RABBITMQ_HOST = "54.70.80.157";
-  private static final int RABBITMQ_PORT = 5672;
-  private static final String RABBITMQ_USERNAME = "admin";
-  private static final String RABBITMQ_PASSWORD = "654321";
+private static final String RABBITMQ_HOST = ConfigReader.getProperty("rabbitmq.host", "54.70.80.157");
 
-  //TODO: adjust them
-  private static final int PREFETCH_COUNT = 20; //TODO: adjust this
-  private static final int NUM_CONSUMER_THREADS_PER_QUEUE = 1; //TODO: adjust the consumer thread
+  private static final int RABBITMQ_PORT = ConfigReader.getIntProperty("rabbitmq.port", 5672);
+  private static final String RABBITMQ_USERNAME = ConfigReader.getProperty("rabbitmq.username", "");
+  private static final String RABBITMQ_PASSWORD = ConfigReader.getProperty("rabbitmq.password", "");
+
+
+  // DynamoDB configuration
+  private static final String DYNAMODB_REGION = ConfigReader.getProperty("aws.dynamodb.region", "us-east-2");
+  private static final String AWS_ACCESS_KEY = ConfigReader.getProperty("aws.access.key", "");
+  private static final String AWS_SECRET_KEY = ConfigReader.getProperty("aws.secret.key", "");
+  //consume configg
+  private static final int PREFETCH_COUNT = 50;
+  private static final int NUM_CONSUMER_THREADS_PER_QUEUE = 1;
   private static final int TOTAL_CONSUMER_THREADS = NUM_CONSUMER_THREADS_PER_QUEUE * NUM_QUEUES;
   private static final int SLEEP_TIME = 0;
   private static final int ACK_BATCH_SIZE = 100;
@@ -38,17 +53,23 @@ private static final String RABBITMQ_HOST = "54.70.80.157";
   private static final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private static final long startTime = System.currentTimeMillis();
 
+  private static final Logger logger = Logger.getLogger(LiftRideMessageConsumer.class.getName());
+  // Circuit breaker for throttling
+  private static final AtomicInteger consecutiveErrors = new AtomicInteger(0);
+  private static final AtomicInteger backoffDelayMs = new AtomicInteger(0);
+  private static final int ERROR_THRESHOLD = 5;
+  private static final int MAX_BACKOFF_MS = 5000;
+  private static final int INITIAL_BACKOFF_MS = 50;
 
-
-
-//hashmap to store the skier data that consumes from the message queue
-  //Key: skierID, value: liftRide details
-  private static final ConcurrentHashMap<Integer, CopyOnWriteArrayList<String>> skierIdToRecords = new ConcurrentHashMap<>();
-
+//ADDing dynamoDB manager
+  private static SkiResortDynamoDBManager dynamoDBManager;
   public static void main(String[] args) throws IOException, TimeoutException, InterruptedException {
     int availableCores = Runtime.getRuntime().availableProcessors();
     System.out.println("Available Cores: " + availableCores);
     System.out.println("Starting Skier Queue Consumer...");
+
+
+    dynamoDBManager = new SkiResortDynamoDBManager(DYNAMODB_REGION, AWS_ACCESS_KEY, AWS_SECRET_KEY);
 
     final ConnectionFactory factory = new ConnectionFactory();
     factory.setHost(RABBITMQ_HOST);
@@ -117,6 +138,10 @@ private static final String RABBITMQ_HOST = "54.70.80.157";
 
   }
 
+  /**
+   * Consume messages from a RabbitMQ queue with optimized settings.
+   * Includes circuit breaker pattern to handle back pressure.
+   */
   private static void consumeMessage(Connection connection, String currentQueueName)  {
   try{
     final Channel channel = connection.createChannel();
@@ -128,25 +153,54 @@ private static final String RABBITMQ_HOST = "54.70.80.157";
     // durable: true, exclusive: false, autoDelete: false
     channel.queueDeclare(currentQueueName, true, false, false, null);
 
+    // Track message count for batch acknowledgment
+    final AtomicInteger batchCounter = new AtomicInteger(0);
+    final AtomicLong lastDeliveryTag = new AtomicLong(0);
 
     DeliverCallback deliverCallback = (consumerTag, delivery) -> {
-      String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
+      long deliveryTag = delivery.getEnvelope().getDeliveryTag();
+      String message = null;
+
       try {
+        //check back pressure
+        int currentBackOff = backoffDelayMs.get();
 
-//        if (processMessageCount.get() < 5 || processMessageCount.get() % 1000 == 0) {
-//          System.out.println("Received message: " + message);
-//        }
-
+        if (currentBackOff>0){
+          try {
+            Thread.sleep(currentBackOff);
+            // Gradually reduce backoff after successful processing
+            backoffDelayMs.set(Math.max(0, currentBackOff - INITIAL_BACKOFF_MS));
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+        }
+        //save the message to the db
+        message = new String(delivery.getBody(), StandardCharsets.UTF_8);
         saveMessage(message);
+
+
 
         //manual acknowledgement with false auto
         channel.basicAck(delivery.getEnvelope().getDeliveryTag(), true); // TODO: enable batch acknowledge
         processMessageCount.incrementAndGet();
+        consecutiveErrors.set(0);
 
       } catch (Exception e) {
         channel.basicNack(delivery.getEnvelope().getDeliveryTag(), false, true);
         processErrorCount.incrementAndGet();
         System.err.println("Error processing message: " + e.getMessage());
+
+        try{
+          channel.basicNack(delivery.getEnvelope().getDeliveryTag(), false, true);
+          if (consecutiveErrors.get() >= ERROR_THRESHOLD){
+            int newBackOff = Math.min(
+                backoffDelayMs.get()==0 ? INITIAL_BACKOFF_MS : backoffDelayMs.get()*2, MAX_BACKOFF_MS
+            );
+            backoffDelayMs.set(newBackOff);
+          }
+        }catch (IOException ioe) {
+          logger.log(Level.SEVERE, "Failed to NACK message", ioe);
+        }
       }
     };
 
@@ -170,21 +224,23 @@ private static final String RABBITMQ_HOST = "54.70.80.157";
   }
 
   /**
-   * Helper method for consuming message and put it into the hashmap
+   * Helper method for consuming message and persist to dynamoDB
    * @param message
 
    */
 
   private static void saveMessage(String message) {
-    try{
+    try {
+
       Gson gson = new Gson();
       LiftRideEvent liftRideEvent = gson.fromJson(message, LiftRideEvent.class);
-      CopyOnWriteArrayList<String> skierRecords = skierIdToRecords.computeIfAbsent(
-          liftRideEvent.getSkierID(), k -> new CopyOnWriteArrayList<>());
-      String skierRecord = String.format("%d:%d:%s:%s:%d", liftRideEvent.getResortID(),liftRideEvent.getLiftID(), liftRideEvent.getSeasonID(), liftRideEvent.getDayID(),  liftRideEvent.getTime());
-      skierRecords.add(skierRecord);
-    }catch (Exception e){
-      throw new RuntimeException("Failed to process message: " + e.getMessage(), e);
+
+      dynamoDBManager.addLiftRide(liftRideEvent);
+
+    } catch (Exception e) {
+
+      e.printStackTrace();
+      throw new RuntimeException(e);
     }
   }
 

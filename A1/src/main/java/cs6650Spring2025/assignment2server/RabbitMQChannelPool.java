@@ -1,12 +1,27 @@
 package cs6650Spring2025.assignment2server;
 
 
+import com.google.gson.Gson;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
+import cs6650Spring2025.assignment3Database.SkiResortDynamoDBManager;
+import cs6650Spring2025.clientPart1.LiftRideEvent;
+import io.swagger.client.model.LiftRide;
+import io.swagger.client.model.ResponseMsg;
+import io.swagger.client.model.SkierVerticalResorts;
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.util.concurrent.BlockingQueue;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
+import java.util.logging.Logger;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 
@@ -23,7 +38,7 @@ public class RabbitMQChannelPool {
   private Connection connection;
 
   //TODO: adjust
-  private final int RECOVERY_DELAY = 100;
+  private final int RECOVERY_DELAY = 50000;
   private final int RECOVERY_HEART_BEAT = 60;
 
   public RabbitMQChannelPool(String host, int port,
@@ -42,6 +57,8 @@ public class RabbitMQChannelPool {
     factory.setAutomaticRecoveryEnabled(true);
     factory.setNetworkRecoveryInterval(RECOVERY_DELAY);
     factory.setRequestedHeartbeat(RECOVERY_HEART_BEAT);
+    factory.setConnectionTimeout(15000);
+    factory.setHandshakeTimeout(10000);
 
     this.connection = factory.newConnection();
 
@@ -68,7 +85,6 @@ public class RabbitMQChannelPool {
    * @throws Exception if there's an error borrowing from the pool
    */
   public Channel borrowChannel() throws Exception {
-    System.out.println("Borrowing channel from pool...");
 
     return channelPool.borrowObject();
   }

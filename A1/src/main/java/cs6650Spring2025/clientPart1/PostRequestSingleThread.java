@@ -15,7 +15,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.servlet.http.HttpServletResponse;
 
-
+/**
+ * The single post request that sends from the client
+ */
 public class PostRequestSingleThread implements Runnable {
   private final int numRequests;
   private final AtomicInteger counterSuccess;
@@ -26,9 +28,9 @@ public class PostRequestSingleThread implements Runnable {
   private final LiftRideEventRandomGenerator liftRideEventRandomGenerator;
   private final SkiersApi skiersApi;
   // without ELB:
-//  private static final String BASE_PATH = "http://44.233.246.8:8080/A1_war";
+  private static final String BASE_PATH = "http://44.233.246.8:8080/A1_war";
 // To load balancer connection:
-  private static final String BASE_PATH = "http://servlet-ELB-422677375.us-west-2.elb.amazonaws.com/A1_war";
+//  private static final String BASE_PATH = "http://servlet-ELB-422677375.us-west-2.elb.amazonaws.com/A1_war";
   //with localhost
 //  private static final String BASE_PATH = "http://localhost:8080/A1_war_exploded";
   private static final int RETIRES_THRESHOLD = 3;
