@@ -5,7 +5,7 @@
          version="4.0">
   <servlet>
     <servlet-name>SkierServlet</servlet-name>
-    <servlet-class>cs6650Spring2025.assignment3Database.SkierServlet</servlet-class>
+    <servlet-class>cs6650Spring2025.servers.SkierServlet</servlet-class>
   </servlet>
   <servlet-mapping>
     <servlet-name>SkierServlet</servlet-name>
