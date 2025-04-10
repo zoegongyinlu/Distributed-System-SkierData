@@ -19,7 +19,7 @@ public class RecordWriter {
     File file = new File(fileName);
     try(FileWriter fileWriter = new FileWriter(fileName)){
 
-      fileWriter.write("startTime, requestType, latency, responseCode\n");
+      fileWriter.write("startTime, requestType, latency, responseCode, skierID, dayID\n");
 
     }catch (Exception e){
       e.printStackTrace();

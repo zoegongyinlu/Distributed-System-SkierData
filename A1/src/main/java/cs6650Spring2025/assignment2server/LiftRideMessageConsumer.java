@@ -153,9 +153,7 @@ private static final String RABBITMQ_HOST = ConfigReader.getProperty("rabbitmq.h
     // durable: true, exclusive: false, autoDelete: false
     channel.queueDeclare(currentQueueName, true, false, false, null);
 
-    // Track message count for batch acknowledgment
-    final AtomicInteger batchCounter = new AtomicInteger(0);
-    final AtomicLong lastDeliveryTag = new AtomicLong(0);
+
 
     DeliverCallback deliverCallback = (consumerTag, delivery) -> {
       long deliveryTag = delivery.getEnvelope().getDeliveryTag();

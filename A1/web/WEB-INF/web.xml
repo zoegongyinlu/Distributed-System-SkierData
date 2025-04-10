@@ -3,12 +3,29 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
          version="4.0">
+  <!-- Write Servlet - handles POST requests -->
+
+
+<!--  <servlet>-->
+<!--    <servlet-name>SkierServlet</servlet-name>-->
+<!--    <servlet-class>cs6650Spring2025.servers.SkierServlet</servlet-class>-->
+<!--    <load-on-startup>1</load-on-startup>-->
+<!--  </servlet>-->
+<!--  <servlet-mapping>-->
+<!--    <servlet-name>SkierServlet</servlet-name>-->
+<!--    <url-pattern>/skiers/*</url-pattern>-->
+<!--  </servlet-mapping>-->
+
+<!--  &lt;!&ndash; Read Servlet - handles GET requests &ndash;&gt;-->
   <servlet>
-    <servlet-name>SkierServlet</servlet-name>
-    <servlet-class>cs6650Spring2025.servers.SkierServlet</servlet-class>
+    <servlet-name>SkierReadServlet</servlet-name>
+    <servlet-class>cs6650Spring2025.servers.SkierReadServlet</servlet-class>
   </servlet>
+
   <servlet-mapping>
-    <servlet-name>SkierServlet</servlet-name>
+    <servlet-name>SkierReadServlet</servlet-name>
     <url-pattern>/skiers/*</url-pattern>
+    <url-pattern>/resorts/*</url-pattern>
   </servlet-mapping>
+
 </web-app>

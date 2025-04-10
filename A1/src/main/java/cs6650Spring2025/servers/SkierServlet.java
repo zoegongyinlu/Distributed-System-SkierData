@@ -9,20 +9,16 @@ import cs6650Spring2025.assignment3Database.DynamoDBService;
 
 import io.swagger.client.model.LiftRide;
 import io.swagger.client.model.ResponseMsg;
-import io.swagger.client.model.SkierVerticalResorts;
+
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.logging.Logger;
 
-//@WebServlet(value = "/skiers/*")  // URL pattern for this servlet
 public class SkierServlet extends HttpServlet {
 
 
@@ -172,118 +168,118 @@ public class SkierServlet extends HttpServlet {
   }
 
 
-  @Override
-  protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
-    res.setContentType("application/json");
-    String urlPath = req.getPathInfo();
-
-    if (urlPath == null || urlPath.isEmpty()) {
-      res.setStatus(HttpServletResponse.SC_NOT_FOUND);
-      ResponseMsg errorMsg = new ResponseMsg();
-      errorMsg.setMessage("Data Not Found");
-      res.getWriter().write(new Gson().toJson(errorMsg));
-      return;
-    }
-
-    String[] urlParts = urlPath.split("/");
-
-    if (!isSkierUrlValid(urlParts)) {
-      res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      ResponseMsg errorMsg = new ResponseMsg();
-      errorMsg.setMessage("Invalid inputs");
-      res.getWriter().write(new Gson().toJson(errorMsg));
-      return;
-    }
-
-    try {
-      if (urlParts.length == 3 && urlParts[2].equals("vertical")) {
-        // Handle /skiers/{skierID}/vertical
-        handleSkiersResortsTotalVertical(req, res, urlParts);
-      } else if (urlParts.length == 8) {
-        // Handle /skiers/{resortID}/seasons/{seasonID}/days/{dayID}/skiers/{skierID}
-        handleSkiersResortsVertical(req, res, urlParts);
-      }
-    } catch (Exception e) {
-      res.setStatus(HttpServletResponse.SC_NOT_FOUND);
-      ResponseMsg errorMsg = new ResponseMsg();
-      errorMsg.setMessage("Data Not Found");
-      res.getWriter().write(new Gson().toJson(errorMsg));
-      logger.warning("Error in doGet: " + e.getMessage());
-    }
-  }
-
-  private void handleSkiersResortsVertical(HttpServletRequest req, HttpServletResponse res, String[] urlParts) throws ServletException, IOException {
-    res.setContentType("application/json");
-    try {
-      int resortId = Integer.parseInt(urlParts[1]);
-      String seasonId = urlParts[3];
-      String dayId = urlParts[5];
-      int skierId = Integer.parseInt(urlParts[7]);
-
-      // Query DynamoDB for vertical totals
-      int verticalTotal = dynamoDBService.getSkierVerticalForDay(skierId, seasonId, dayId);
-
-      res.setStatus(HttpServletResponse.SC_OK);
-      res.getWriter().write(String.valueOf(verticalTotal));
-    } catch (NumberFormatException e) {
-      res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      ResponseMsg errorMsg = new ResponseMsg();
-      errorMsg.setMessage("Invalid inputs supplied");
-      res.getWriter().write(new Gson().toJson(errorMsg));
-    } catch (NullPointerException e) {
-      res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      ResponseMsg errorMsg = new ResponseMsg();
-      errorMsg.setMessage("Invalid inputs supplied");
-      res.getWriter().write(new Gson().toJson(errorMsg));
-    } catch (Exception e) {
-      res.setStatus(HttpServletResponse.SC_NOT_FOUND);
-      ResponseMsg errorMsg = new ResponseMsg();
-      errorMsg.setMessage("Data Not Found");
-      res.getWriter().write(new Gson().toJson(errorMsg));
-    }
-  }
-
-  private void handleSkiersResortsTotalVertical(HttpServletRequest req, HttpServletResponse res, String[] urlParts) throws ServletException, IOException {
-    res.setContentType("application/json");
-
-    try {
-      int skierId = Integer.parseInt(urlParts[1]);
-
-      if (!dynamoDBService.hasSkierData(skierId)) {
-        res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-        res.setStatus(HttpServletResponse.SC_NOT_FOUND);
-        ResponseMsg errorMsg = new ResponseMsg();
-        errorMsg.setMessage("No vertical data found for skier ID: " + skierId);
-        res.getWriter().write(new Gson().toJson(errorMsg));
-        return;
-      }
-
-      int totalVertical = dynamoDBService.getTotalSkierVertical(skierId);
-
-      res.setStatus(HttpServletResponse.SC_OK);
-      res.getWriter().write(String.valueOf(totalVertical));
-    } catch (NumberFormatException e) {
-      res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      ResponseMsg errorMsg = new ResponseMsg();
-      errorMsg.setMessage("Invalid skier ID format");
-      res.getWriter().write(new Gson().toJson(errorMsg));
-    } catch (Exception e) {
-      res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-      ResponseMsg errorMsg = new ResponseMsg();
-      errorMsg.setMessage("Server error: " + e.getMessage());
-      res.getWriter().write(new Gson().toJson(errorMsg));
-    }
-  }
-
-  private List<SkierVerticalResorts> getAllVerticalResorts(Integer skierId, String resortQuery) {
-    List<SkierVerticalResorts> resorts = new ArrayList<>();
-    return resorts;
-  }
-
-  private SkierVerticalResorts getVerticalResortBySeason(Integer skierId, String resortQuery, String seasonQuery) {
-    SkierVerticalResorts resort = new SkierVerticalResorts();
-    return resort;
-  }
+//  @Override
+//  protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+//    res.setContentType("application/json");
+//    String urlPath = req.getPathInfo();
+//
+//    if (urlPath == null || urlPath.isEmpty()) {
+//      res.setStatus(HttpServletResponse.SC_NOT_FOUND);
+//      ResponseMsg errorMsg = new ResponseMsg();
+//      errorMsg.setMessage("Data Not Found");
+//      res.getWriter().write(new Gson().toJson(errorMsg));
+//      return;
+//    }
+//
+//    String[] urlParts = urlPath.split("/");
+//
+//    if (!isSkierUrlValid(urlParts)) {
+//      res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+//      ResponseMsg errorMsg = new ResponseMsg();
+//      errorMsg.setMessage("Invalid inputs");
+//      res.getWriter().write(new Gson().toJson(errorMsg));
+//      return;
+//    }
+//
+//    try {
+//      if (urlParts.length == 3 && urlParts[2].equals("vertical")) {
+//        // Handle /skiers/{skierID}/vertical
+//        handleSkiersResortsTotalVertical(req, res, urlParts);
+//      } else if (urlParts.length == 8) {
+//        // Handle /skiers/{resortID}/seasons/{seasonID}/days/{dayID}/skiers/{skierID}
+//        handleSkiersResortsVertical(req, res, urlParts);
+//      }
+//    } catch (Exception e) {
+//      res.setStatus(HttpServletResponse.SC_NOT_FOUND);
+//      ResponseMsg errorMsg = new ResponseMsg();
+//      errorMsg.setMessage("Data Not Found");
+//      res.getWriter().write(new Gson().toJson(errorMsg));
+//      logger.warning("Error in doGet: " + e.getMessage());
+//    }
+//  }
+//
+//  private void handleSkiersResortsVertical(HttpServletRequest req, HttpServletResponse res, String[] urlParts) throws ServletException, IOException {
+//    res.setContentType("application/json");
+//    try {
+//      int resortId = Integer.parseInt(urlParts[1]);
+//      String seasonId = urlParts[3];
+//      String dayId = urlParts[5];
+//      int skierId = Integer.parseInt(urlParts[7]);
+//
+//      // Query DynamoDB for vertical totals
+//      int verticalTotal = dynamoDBService.getSkierVerticalForDay(skierId, seasonId, dayId);
+//
+//      res.setStatus(HttpServletResponse.SC_OK);
+//      res.getWriter().write(String.valueOf(verticalTotal));
+//    } catch (NumberFormatException e) {
+//      res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+//      ResponseMsg errorMsg = new ResponseMsg();
+//      errorMsg.setMessage("Invalid inputs supplied");
+//      res.getWriter().write(new Gson().toJson(errorMsg));
+//    } catch (NullPointerException e) {
+//      res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+//      ResponseMsg errorMsg = new ResponseMsg();
+//      errorMsg.setMessage("Invalid inputs supplied");
+//      res.getWriter().write(new Gson().toJson(errorMsg));
+//    } catch (Exception e) {
+//      res.setStatus(HttpServletResponse.SC_NOT_FOUND);
+//      ResponseMsg errorMsg = new ResponseMsg();
+//      errorMsg.setMessage("Data Not Found");
+//      res.getWriter().write(new Gson().toJson(errorMsg));
+//    }
+//  }
+//
+//  private void handleSkiersResortsTotalVertical(HttpServletRequest req, HttpServletResponse res, String[] urlParts) throws ServletException, IOException {
+//    res.setContentType("application/json");
+//
+//    try {
+//      int skierId = Integer.parseInt(urlParts[1]);
+//
+//      if (!dynamoDBService.hasSkierData(skierId)) {
+//        res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+//        res.setStatus(HttpServletResponse.SC_NOT_FOUND);
+//        ResponseMsg errorMsg = new ResponseMsg();
+//        errorMsg.setMessage("No vertical data found for skier ID: " + skierId);
+//        res.getWriter().write(new Gson().toJson(errorMsg));
+//        return;
+//      }
+//
+//      int totalVertical = dynamoDBService.getTotalSkierVertical(skierId);
+//
+//      res.setStatus(HttpServletResponse.SC_OK);
+//      res.getWriter().write(String.valueOf(totalVertical));
+//    } catch (NumberFormatException e) {
+//      res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+//      ResponseMsg errorMsg = new ResponseMsg();
+//      errorMsg.setMessage("Invalid skier ID format");
+//      res.getWriter().write(new Gson().toJson(errorMsg));
+//    } catch (Exception e) {
+//      res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+//      ResponseMsg errorMsg = new ResponseMsg();
+//      errorMsg.setMessage("Server error: " + e.getMessage());
+//      res.getWriter().write(new Gson().toJson(errorMsg));
+//    }
+//  }
+//
+//  private List<SkierVerticalResorts> getAllVerticalResorts(Integer skierId, String resortQuery) {
+//    List<SkierVerticalResorts> resorts = new ArrayList<>();
+//    return resorts;
+//  }
+//
+//  private SkierVerticalResorts getVerticalResortBySeason(Integer skierId, String resortQuery, String seasonQuery) {
+//    SkierVerticalResorts resort = new SkierVerticalResorts();
+//    return resort;
+//  }
 
   private boolean isSkierUrlValid(String[] urlParts) {
     if (urlParts == null || urlParts.length == 0) return false;

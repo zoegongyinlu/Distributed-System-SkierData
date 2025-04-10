@@ -7,16 +7,18 @@ public class LiftRideEventRandomGenerator {
   private final BlockingDeque<LiftRideEvent> eventQueue;
   private final int QUEUE_CAPACITY = 10000;
   private volatile boolean running = true;
+  private final String dayValue;
 
-  public LiftRideEventRandomGenerator() {
+  public LiftRideEventRandomGenerator(String dayValue) {
     this.eventQueue = new LinkedBlockingDeque<>(QUEUE_CAPACITY);
+    this.dayValue = dayValue;
   }
 
   public void startGeneration(){
     new Thread(() -> {
       while(running){
         try{
-          eventQueue.put(new LiftRideEvent());
+          eventQueue.put(new LiftRideEvent(dayValue));
         }catch(InterruptedException e){
           Thread.currentThread().interrupt();
           break;

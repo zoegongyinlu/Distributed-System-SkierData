@@ -101,7 +101,7 @@ public class PostRequestSingleThread implements Runnable {
               liftRideEvent.getResortID(), liftRideEvent.getSeasonID(), liftRideEvent.getDayID(), liftRideEvent.getSkierID());
 
           long endTime = System.currentTimeMillis();
-          recordWriter.addPostMetric(new PostRequestMetrics(startTime, endTime-startTime, "POST", response.getStatusCode()));
+          recordWriter.addPostMetric(new PostRequestMetrics(startTime, endTime-startTime, "POST", response.getStatusCode(), liftRideEvent.getSkierID(), liftRideEvent.getDayID()));
 
           success = true;
           completedRequest++;
@@ -114,7 +114,7 @@ public class PostRequestSingleThread implements Runnable {
 
         } catch (ApiException e) {
           long endTime = System.currentTimeMillis();
-          recordWriter.addPostMetric(new PostRequestMetrics(startTime, endTime-startTime, "POST", e.getCode()));
+          recordWriter.addPostMetric(new PostRequestMetrics(startTime, endTime-startTime, "POST", e.getCode(), 0, "0"));
           if (e.getCode() >= HttpServletResponse.SC_BAD_REQUEST && e.getCode() <HttpServletResponse.SC_HTTP_VERSION_NOT_SUPPORTED && retryCount
               < (RETIRES_THRESHOLD-1) ){
             retryCount++;

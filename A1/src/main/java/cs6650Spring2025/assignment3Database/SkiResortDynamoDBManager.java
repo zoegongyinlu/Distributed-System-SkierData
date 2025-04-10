@@ -47,7 +47,7 @@ public class SkiResortDynamoDBManager {
   private static final int BATCH_SIZE = 25; // Maximum allowed by DynamoDB
   private final ConcurrentLinkedQueue<Item> itemQueue = new ConcurrentLinkedQueue<>();
 
-  private final int PROCESSING_BATCH_TIME_INTERVAL = 50;
+  private final int PROCESSING_BATCH_TIME_INTERVAL = 200;
   private final ScheduledExecutorService batchWriteService;
   private final ExecutorService batchProcessService;
 //  private final ExecutorService autoScalingService;
@@ -56,8 +56,6 @@ public class SkiResortDynamoDBManager {
   private final TokenBucket writeLimiter;
   private static final int TOKENS_PER_SECOND = 800; // Set to ~80% of your provisioned capacity
   private static final int MAX_BURST = 200;
-
-
 
   // Metrics
   private final AtomicInteger queueSize = new AtomicInteger(0);
@@ -89,7 +87,7 @@ public class SkiResortDynamoDBManager {
     this.client = AmazonDynamoDBClientBuilder.standard()
         .withRegion(region)
         .withCredentials(new AWSStaticCredentialsProvider(sessionCreds))
-        .withClientConfiguration(new ClientConfiguration(new com.amazonaws.ClientConfiguration()).withMaxConnections(100).withConnectionTimeout(10000).withRequestTimeout(60000).withMaxErrorRetry(10).withThrottledRetries(true))
+        .withClientConfiguration(new ClientConfiguration(new com.amazonaws.ClientConfiguration()).withMaxConnections(25).withConnectionTimeout(5000).withRequestTimeout(30000).withMaxErrorRetry(10).withThrottledRetries(true))
 
         .build();
     this.dynamoDB = new DynamoDB(client);
@@ -146,7 +144,7 @@ public class SkiResortDynamoDBManager {
       // Define GSI1 - Resort Day Skiers
       GlobalSecondaryIndex gsi_resortDaySkiers = new GlobalSecondaryIndex()
           .withIndexName(GSI1_NAME)
-          .withProvisionedThroughput(new ProvisionedThroughput(100L, 500L))
+          .withProvisionedThroughput(new ProvisionedThroughput(500L, 500L))
           .withProjection(new Projection().withProjectionType(ProjectionType.ALL));
 
       List<KeySchemaElement> gsi1KeySchema = new ArrayList<>();
@@ -157,7 +155,7 @@ public class SkiResortDynamoDBManager {
       // Define GSI2 - SkierDaysInSeason
       GlobalSecondaryIndex gsi2_SkierDaysInSeason = new GlobalSecondaryIndex()
           .withIndexName(GSI2_NAME)
-          .withProvisionedThroughput(new ProvisionedThroughput(100L, 500L))
+          .withProvisionedThroughput(new ProvisionedThroughput(500L, 500L))
           .withProjection(new Projection().withProjectionType(ProjectionType.ALL));
 
       List<KeySchemaElement> gsi2KeySchema = new ArrayList<>();
@@ -171,7 +169,7 @@ public class SkiResortDynamoDBManager {
           .withKeySchema(keySchema)
           .withAttributeDefinitions(attributeDefinitions)
           .withGlobalSecondaryIndexes(gsi_resortDaySkiers, gsi2_SkierDaysInSeason)
-          .withProvisionedThroughput(new ProvisionedThroughput(100L, 500L));
+          .withProvisionedThroughput(new ProvisionedThroughput(500L, 500L));
 
       Table table = dynamoDB.createTable(createTableRequest);
       try {
@@ -208,11 +206,11 @@ public class SkiResortDynamoDBManager {
               new GlobalSecondaryIndexUpdate()
                   .withUpdate(new UpdateGlobalSecondaryIndexAction()
                       .withIndexName(GSI1_NAME)
-                      .withProvisionedThroughput(new ProvisionedThroughput(100L, 500L))),
+                      .withProvisionedThroughput(new ProvisionedThroughput(500L, 500L))),
               new GlobalSecondaryIndexUpdate()
                   .withUpdate(new UpdateGlobalSecondaryIndexAction()
                       .withIndexName(GSI2_NAME)
-                      .withProvisionedThroughput(new ProvisionedThroughput(100L, 500L)))
+                      .withProvisionedThroughput(new ProvisionedThroughput(500L, 500L)))
           );
 
       client.updateTable(updateTableRequest);
@@ -230,9 +228,11 @@ public class SkiResortDynamoDBManager {
   public void addLiftRide(LiftRideEvent liftRideEvent) {
     // Check if we're in backoff mode due to throttling
     int currentBackoff = backoffDelayMs.get();
+    //circuit breaker pattern implicit half-open behavior with backoff graduated recovery
     if (currentBackoff > 0) {
       try {
         Thread.sleep(currentBackoff);
+        //Each operation reduces the backoff delay by INITIAL_BACKOFF_MS (50ms)
         backoffDelayMs.set(Math.max(0, currentBackoff - INITIAL_BACKOFF_MS));
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
@@ -284,6 +284,7 @@ public class SkiResortDynamoDBManager {
       failedWrites.incrementAndGet();
 
       // Increment error counter and apply backoff if needed
+      // circuit open state:
       if (consecutiveErrors.incrementAndGet() >= ERROR_THRESHOLD) {
         int newBackoff = Math.min(
             backoffDelayMs.get() == 0 ? INITIAL_BACKOFF_MS : backoffDelayMs.get() * 2,

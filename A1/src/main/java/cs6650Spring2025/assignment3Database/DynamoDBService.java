@@ -1,10 +1,7 @@
 package cs6650Spring2025.assignment3Database;
 
 import cs6650Spring2025.util.ConfigReader;
-import io.swagger.client.model.SkierVerticalResorts;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -53,7 +50,17 @@ public class DynamoDBService {
     }
   }
 
-  /**
+  public int getNumberOfUniqueSkiers(int resortId, String seasonId, String dayId){
+    try{
+      int res = skiResortDynamoDBManager.getUniqueSkiersCount(resortId, seasonId, dayId);
+      return res;
+    }catch (Exception e){
+      logger.warning("Error getting unique skier count: " + e.getMessage());
+      return 0;
+    }
+  }
+
+  /**GET/skiers/{skierID}/vertical
    * Get the total vertical for a skier across all days and seasons
    * @param skierId The skier ID
    * @return The total vertical or 0 if not found
@@ -89,27 +96,7 @@ public class DynamoDBService {
     }
   }
 
-  /**
-   * Get all vertical resorts for a skier
-   */
-  public List<SkierVerticalResorts> getAllVerticalResorts(Integer skierId, String resortQuery) {
-    // This method would need to be implemented based on specific requirements
-    List<SkierVerticalResorts> resorts = new ArrayList<>();
-    return resorts;
-  }
 
-  /**
-   * Get vertical for a specific resort and season
-   * @param skierId The skier ID
-   * @param resortQuery The resort ID
-   * @param seasonQuery The season ID
-   * @return SkierVerticalResorts object
-   */
-  public SkierVerticalResorts getVerticalResortBySeason(Integer skierId, String resortQuery, String seasonQuery) {
-    // This method would need to be implemented based on specific requirements
-    SkierVerticalResorts resort = new SkierVerticalResorts();
-    return resort;
-  }
 
   public void shutdown() {
     if (skiResortDynamoDBManager != null) {

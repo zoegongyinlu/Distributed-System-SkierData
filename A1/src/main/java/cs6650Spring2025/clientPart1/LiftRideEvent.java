@@ -12,12 +12,14 @@ public class LiftRideEvent {
   private final int time;
   private static final Random RANDOM = new Random();
 
-  public LiftRideEvent() {
+  public LiftRideEvent(String dayValue) {
     this.skierID = RANDOM.nextInt(100000)+1;
-    this.resortID = RANDOM.nextInt(10) + 1;
+
+//    this.resortID = RANDOM.nextInt(10) + 1;
+    this.resortID = 8;
     this.liftID = RANDOM.nextInt(40) + 1;
     this.seasonID = "2025";
-    this.dayID = "1";
+    this.dayID = dayValue;
     this.time = RANDOM.nextInt(360) + 1;
   }
 
